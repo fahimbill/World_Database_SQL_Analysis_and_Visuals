@@ -1,0 +1,144 @@
+-- database can be found here: https://relational.fit.cvut.cz/dataset/World
+
+-- top 10 cities with the highest population 
+SELECT Country.Name, 
+		City.Name, 
+        City.Population
+FROM Country
+LEFT JOIN City ON City.CountryCode = Country.Code
+ORDER BY City.Population DESC 
+LIMIT 10;
+
+-- countries whose GNPS have gone down
+SELECT Country.Name, 
+		Country.GNP,
+        Country.GNPOld
+FROM Country
+WHERE Country.GNP < Country.GNPOld;
+
+-- list all the cities in Quebec region of Canada
+SELECT Country.Name, 
+		City.Name, 
+        City.Population
+FROM Country
+LEFT JOIN City ON City.CountryCode = Country.Code
+WHERE City.District = 'Quebec';
+
+
+SELECT Country.Name, 
+		City.Name, 
+        City.Population
+        
+FROM Country
+LEFT JOIN City ON City.CountryCode = Country.Code
+ORDER BY City.Population DESC 
+LIMIT 10;
+
+-- rolling population of countries as cities go down in Asia using window function
+SELECT Country.Name, 
+		City.Name AS city, 
+        City.Population,
+        SUM(City.Population) OVER(PARTITION BY Country.Name ORDER BY City.Population) AS rolling_city_population
+FROM Country
+LEFT JOIN City ON City.CountryCode = Country.Code
+WHERE Continent = 'Asia'
+ORDER BY Country.Name, City.Population; 
+
+
+-- lowest city population in each country using subquery 
+SELECT Country.Name AS country, 
+		City.Name AS city, 
+        City.Population AS min_pop
+FROM Country
+LEFT JOIN City ON City.CountryCode = Country.Code
+WHERE City.Population = (SELECT MIN(City.Population) FROM City WHERE City.CountryCode = Country.Code)
+ORDER BY Country.Name;
+
+-- highest city population in each country using subquery
+SELECT Country.Name AS country, 
+		City.Name AS city, 
+        City.Population AS max_pop
+FROM Country
+LEFT JOIN City ON City.CountryCode = Country.Code
+WHERE City.Population = (SELECT MAX(City.Population) FROM City WHERE City.CountryCode = Country.Code)
+ORDER BY Country.Name;
+
+-- lowest population and highest population cities in each country using CASE 
+SELECT 
+    Country.Name AS country,
+    MIN(CASE WHEN City.Population = (SELECT MIN(City.Population) FROM City WHERE City.CountryCode = Country.Code) THEN City.Name END) AS min_city,
+    MIN(CASE WHEN City.Population = (SELECT MIN(City.Population) FROM City WHERE City.CountryCode = Country.Code) THEN City.Population END) AS min_pop,
+    MIN(CASE WHEN City.Population = (SELECT MAX(City.Population) FROM City WHERE City.CountryCode = Country.Code) THEN City.Name END) AS max_city,
+    MIN(CASE WHEN City.Population = (SELECT MAX(City.Population) FROM City WHERE City.CountryCode = Country.Code) THEN City.Population END) AS max_pop
+FROM Country
+LEFT JOIN City ON City.CountryCode = Country.Code
+GROUP BY Country.Name
+ORDER BY country;
+
+-- mix and max cities without CASE
+SELECT 
+    Country.Name AS country,
+    MinCity.Name AS min_city,
+    MinCity.Population AS min_pop,
+    MaxCity.Name AS max_city,
+    MaxCity.Population AS max_pop
+FROM 
+    Country
+LEFT JOIN City AS MinCity 
+    ON MinCity.CountryCode = Country.Code
+    AND MinCity.Population = (SELECT MIN(Population) FROM City WHERE CountryCode = Country.Code)
+LEFT JOIN City AS MaxCity 
+    ON MaxCity.CountryCode = Country.Code
+    AND MaxCity.Population = (SELECT MAX(Population) FROM City WHERE CountryCode = Country.Code)
+ORDER BY country;
+
+
+-- Most spoken language in each country
+SELECT Country.Code,
+		Country.Name,
+		CountryLanguage.Language,
+        CountryLanguage.Percentage
+FROM Country
+LEFT JOIN CountryLanguage ON CountryLanguage.CountryCode = Country.Code
+WHERE CountryLanguage.Percentage = (SELECT MAX(Percentage) FROM CountryLanguage WHERE CountryLanguage.CountryCode = Country.Code)
+ORDER BY Country.Name;
+
+-- Countries where the most spoken language is not the offical language
+SELECT Country.Code AS country_code,
+		Country.Name AS Country,
+		CountryLanguage.Language AS language,
+        CountryLanguage.Percentage AS language_percent,
+        CountryLanguage.IsOfficial AS offical_language
+FROM Country
+LEFT JOIN CountryLanguage ON CountryLanguage.CountryCode = Country.Code
+WHERE CountryLanguage.Percentage = (SELECT MAX(Percentage) FROM CountryLanguage WHERE CountryLanguage.CountryCode = Country.Code) AND CountryLanguage.IsOfficial = 'F'
+ORDER BY Country.Name;
+
+-- average life expectancy by continent
+SELECT Continent, AVG(LifeExpectancy) AS AvgLifeExpectancy
+FROM Country
+GROUP BY Continent;
+
+-- average life expectancy by country
+SELECT Country.Name AS Country,
+    Country.Continent,
+    AVG(Country.LifeExpectancy) AS avg_life_expectancy
+FROM Country
+GROUP BY Country.Code, Country.Name, Country.Continent
+ORDER BY AVG(Country.LifeExpectancy) DESC;
+
+-- countries ranked by GNP
+SELECT Country.Name AS Country,
+    Country.Continent,
+    Country.GNP
+FROM Country
+GROUP BY Country.Code, Country.Name, Country.Continent
+ORDER BY Country.GNP DESC;
+
+-- countries ranked by population density
+SELECT Country.Name AS Country,
+    Country.Continent,
+    Round(Country.Population/Country.SurfaceArea, 2) AS population_density
+FROM Country
+GROUP BY Country.Code, Country.Name, Country.Continent
+ORDER BY Round(Country.Population/Country.SurfaceArea, 2) DESC;
